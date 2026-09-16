@@ -1,0 +1,1 @@
+if('serviceWorker' in navigator) {window.addEventListener('load', () => {navigator.serviceWorker.register('/controle_frota/sw.js', { scope: '/controle_frota/' })})}
