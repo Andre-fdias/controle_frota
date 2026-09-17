@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { 
   Box, Typography, Table, TableBody, TableCell, TableContainer, 
   TableHead, TableRow, TextField, TablePagination,
-  Select, MenuItem
+  Select, MenuItem, Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton, Grid
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
@@ -13,6 +13,7 @@ import SpeedIcon from '@mui/icons-material/Speed';
 import LocalGasStationIcon from '@mui/icons-material/LocalGasStation';
 import TableViewIcon from '@mui/icons-material/TableView';
 import StorefrontIcon from '@mui/icons-material/Storefront';
+import CloseIcon from '@mui/icons-material/Close';
 import { useVehicleStore } from '../../store/vehicleStore';
 import type { Abastecimento } from '../../types';
 
@@ -37,15 +38,17 @@ const glassPanelStyle = {
 };
 
 const inputStyle = {
-  backgroundColor: '#0a0e17',
-  border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: '12px',
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  borderRadius: '8px',
   color: 'white',
-  padding: '6px 12px',
+  padding: '8px 16px',
   fontSize: '13px',
   outline: 'none',
   transition: 'border-color 0.2s',
-  '&:focus': { borderColor: 'rgba(52, 211, 153, 0.5)' }
+  colorScheme: 'dark',
+  '&:focus': { borderColor: 'rgba(52, 211, 153, 0.5)' },
+  '&::-webkit-calendar-picker-indicator': { opacity: 0.7, cursor: 'pointer' }
 };
 
 const labelStyle = {
@@ -65,6 +68,9 @@ const Abastecimentos: React.FC = () => {
   const [postoFilter, setPostoFilter] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(15);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [selectedAbastecimento, setSelectedAbastecimento] = useState<any>(null);
 
   const allAbastecimentos = useMemo(() => {
     const list: (Abastecimento & { consumoKmL?: number })[] = [];
@@ -97,6 +103,21 @@ const Abastecimentos: React.FC = () => {
 
 
 
+const parseBrDate = (dateStr: string) => {
+    if (!dateStr) return new Date(0);
+    if (dateStr.includes('/')) {
+      const [datePart, timePart] = dateStr.split(' ');
+      if (datePart) {
+        const [day, month, year] = datePart.split('/');
+        if (day && month && year) {
+          return new Date(`${year}-${month}-${day}T${timePart || '00:00:00'}`);
+        }
+      }
+    }
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  };
+
   const filtered = useMemo(() => {
     let result = allAbastecimentos;
     if (prefixFilter) {
@@ -119,8 +140,20 @@ const Abastecimentos: React.FC = () => {
         a.data.includes(q)
       );
     }
+    
+    if (startDate) {
+      const start = new Date(startDate).getTime();
+      result = result.filter(a => parseBrDate(a.data || '').getTime() >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      const endT = end.getTime();
+      result = result.filter(a => parseBrDate(a.data || '').getTime() <= endT);
+    }
+
     return result;
-  }, [allAbastecimentos, search, prefixFilter, postoFilter]);
+  }, [allAbastecimentos, search, prefixFilter, postoFilter, startDate, endDate]);
 
   // Totals
   const totalGasto = filtered.reduce((acc, curr) => acc + (curr.valorTotal || 0), 0);
@@ -196,14 +229,13 @@ const Abastecimentos: React.FC = () => {
               </Box>
             </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', width: 200 }}>
-              <Typography sx={labelStyle}>Data Início</Typography>
-              <Box component="input" type="date" sx={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} />
-            </Box>
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', width: 200 }}>
-              <Typography sx={labelStyle}>Data Fim</Typography>
-              <Box component="input" type="date" sx={{ ...inputStyle, width: '100%', boxSizing: 'border-box' }} />
+            <Box sx={{ display: 'flex', flexDirection: 'column', width: 'auto' }}>
+              <Typography sx={labelStyle}>Período</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box component="input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} sx={{ ...inputStyle, color: startDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
+                <Typography sx={{ color: '#9ca3af', fontSize: '12px' }}>até</Typography>
+                <Box component="input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} sx={{ ...inputStyle, color: endDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
+              </Box>
             </Box>
           </Box>
         </Box>
@@ -291,7 +323,7 @@ const Abastecimentos: React.FC = () => {
                 {paginated.map((a, i) => (
                   <TableRow 
                     key={`${a.prefixo}-${i}`} 
-                    onClick={() => navigate(`/viaturas/${a.prefixo}`)}
+                    onClick={() => setSelectedAbastecimento(a)}
                     sx={{ 
                       cursor: 'pointer',
                       transition: 'background-color 0.2s',
@@ -341,6 +373,70 @@ const Abastecimentos: React.FC = () => {
           </Box>
         </Box>
       </Box>
+
+      {selectedAbastecimento && (
+        <Dialog 
+          open={!!selectedAbastecimento} 
+          onClose={() => setSelectedAbastecimento(null)}
+          PaperProps={{ sx: { bgcolor: '#0a0e17', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '24px', minWidth: { xs: '90vw', md: '500px' } } }}
+        >
+          <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <LocalGasStationIcon sx={{ color: '#60a5fa' }} />
+              <Typography sx={{ fontWeight: 'bold' }}>Detalhamento de Abastecimento</Typography>
+            </Box>
+            <IconButton onClick={() => setSelectedAbastecimento(null)} sx={{ color: '#9ca3af' }}>
+              <CloseIcon />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent sx={{ p: 3 }}>
+            <Grid container spacing={2} sx={{ mt: 1 }}>
+              <Grid item xs={6}>
+                <Typography sx={labelStyle}>Viatura</Typography>
+                <Typography sx={{ color: 'white', fontWeight: 'bold' }}>{selectedAbastecimento.prefixo}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography sx={labelStyle}>Data / Hora</Typography>
+                <Typography sx={{ color: 'white' }}>{selectedAbastecimento.data}</Typography>
+              </Grid>
+              <Grid item xs={12}>
+                <Typography sx={labelStyle}>Pelotão / Estação</Typography>
+                <Typography sx={{ color: 'white' }}>{selectedAbastecimento.pelotaoEstacao || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography sx={labelStyle}>Hodômetro (KM)</Typography>
+                <Typography sx={{ color: '#d1d5db' }}>{selectedAbastecimento.kmHodometro?.toLocaleString('pt-BR') || '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography sx={labelStyle}>Volume Abastecido</Typography>
+                <Typography sx={{ color: '#60a5fa', fontWeight: 'bold' }}>{selectedAbastecimento.volumeLitros ? `${selectedAbastecimento.volumeLitros} L` : '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography sx={labelStyle}>Valor Total</Typography>
+                <Typography sx={{ color: '#f87171', fontWeight: 'bold' }}>{selectedAbastecimento.valorTotal ? `R$ ${selectedAbastecimento.valorTotal.toFixed(2)}` : '-'}</Typography>
+              </Grid>
+              <Grid item xs={6}>
+                <Typography sx={labelStyle}>Consumo no Trecho</Typography>
+                <Typography sx={{ color: '#c084fc', fontWeight: 'bold' }}>{selectedAbastecimento.consumoKmL ? `${selectedAbastecimento.consumoKmL.toFixed(1)} km/l` : '-'}</Typography>
+              </Grid>
+              {selectedAbastecimento.responsavel && (
+                <Grid item xs={12}>
+                  <Typography sx={labelStyle}>Responsável</Typography>
+                  <Typography sx={{ color: 'white' }}>{selectedAbastecimento.responsavel}</Typography>
+                </Grid>
+              )}
+            </Grid>
+          </DialogContent>
+          <DialogActions sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+            <Button onClick={() => navigate(`/viaturas/${selectedAbastecimento.prefixo}`)} sx={{ color: '#34d399', textTransform: 'none', fontWeight: 'bold' }}>
+              Ir para Viatura
+            </Button>
+            <Button onClick={() => setSelectedAbastecimento(null)} sx={{ color: '#9ca3af', textTransform: 'none' }}>
+              Fechar
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };

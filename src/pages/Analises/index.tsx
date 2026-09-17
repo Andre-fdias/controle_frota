@@ -1,45 +1,92 @@
 import React, { useMemo } from 'react';
-import { Box, Typography, Grid, Avatar, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip } from '@mui/material';
+import { Box, Typography, Avatar, Grid, Card, Tooltip as MuiTooltip } from '@mui/material';
 import Assessment from '@mui/icons-material/Assessment';
 import Speed from '@mui/icons-material/Speed';
-import LocalGasStation from '@mui/icons-material/LocalGasStation';
 import AttachMoney from '@mui/icons-material/AttachMoney';
+import EventBusy from '@mui/icons-material/EventBusy';
+import LocalGasStation from '@mui/icons-material/LocalGasStation';
 import DirectionsCar from '@mui/icons-material/DirectionsCar';
 import Build from '@mui/icons-material/Build';
-import CalendarToday from '@mui/icons-material/CalendarToday';
-import Warning from '@mui/icons-material/Warning';
-import EventBusy from '@mui/icons-material/EventBusy';
+import ErrorOutlined from '@mui/icons-material/ErrorOutlined';
+import CheckCircleOutlined from '@mui/icons-material/CheckCircleOutlined';
 import { useVehicleStore } from '../../store/vehicleStore';
 import { 
-  PieChart, Pie, Cell, Tooltip, ResponsiveContainer, BarChart, Bar, 
-  XAxis, YAxis, CartesianGrid, Legend, Line, ComposedChart 
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend, 
+  Tooltip, LineChart, Line, ScatterChart, Scatter, ZAxis, AreaChart, Area,
+  ComposedChart
 } from 'recharts';
+import { parse, differenceInDays, format, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
-const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f43f5e', '#14b8a6', '#6366f1', '#ec4899'];
+// --- STYLES ---
+const COLORS = {
+  primary: '#3b82f6',
+  success: '#10b981',
+  warning: '#f59e0b',
+  danger: '#ef4444',
+  purple: '#8b5cf6',
+  textMain: 'white',
+  textMuted: '#9ca3af',
+  bgPanel: 'rgba(255, 255, 255, 0.03)',
+  border: 'rgba(255, 255, 255, 0.05)',
+};
 
 const glassPanelStyle = {
-  background: 'rgba(255, 255, 255, 0.03)',
+  background: COLORS.bgPanel,
   backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255, 255, 255, 0.05)',
-  borderRadius: '24px',
+  border: `1px solid ${COLORS.border}`,
+  borderRadius: '16px',
+  p: 2,
+  display: 'flex',
+  flexDirection: 'column',
+  height: '100%'
+};
+
+const inputStyle = {
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  borderRadius: '8px',
+  color: 'white',
+  padding: '8px 16px',
+  fontSize: '13px',
+  outline: 'none',
+  transition: 'border-color 0.2s',
+  colorScheme: 'dark',
+  '&:focus': { borderColor: 'rgba(52, 211, 153, 0.5)' },
+  '&::-webkit-calendar-picker-indicator': { opacity: 0.7, cursor: 'pointer' }
+};
+
+// --- HELPERS ---
+const parseBrDate = (str: string) => {
+  if (!str) return null;
+  const parts = str.split(' ');
+  const dParts = parts[0].split('/');
+  if (dParts.length !== 3) return null;
+  return new Date(Number(dParts[2]), Number(dParts[1]) - 1, Number(dParts[0]));
 };
 
 const CustomTooltip = ({ active, payload, label }: any) => {
   if (active && payload && payload.length) {
     return (
-      <Box sx={{ bgcolor: 'rgba(10, 14, 23, 0.95)', border: '1px solid rgba(255,255,255,0.1)', p: 1, borderRadius: '8px', boxShadow: '0 4px 8px -4px rgba(0,0,0,0.5)' }}>
-        <Typography sx={{ color: 'white', fontWeight: 'bold', fontSize: '11px', mb: 0.5 }}>{label || payload[0].name}</Typography>
+      <Box sx={{ bgcolor: 'rgba(10, 14, 23, 0.95)', border: '1px solid rgba(255,255,255,0.1)', p: 1.5, borderRadius: '8px', boxShadow: '0 4px 12px rgba(0,0,0,0.5)' }}>
+        <Typography sx={{ color: 'white', fontWeight: 'bold', fontSize: '12px', mb: 1 }}>{label || payload[0].payload.name}</Typography>
         {payload.map((p: any, i: number) => {
-          let value = p.value;
-          if (p.name === 'Gasto' || p.dataKey === 'gasto' || p.name === 'Custo/KM') {
-            value = `R$ ${Number(p.value).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-          } else if (p.name === 'KM' || p.dataKey === 'kmAtual') {
-            value = `${Number(p.value).toLocaleString('pt-BR')} km`;
+          let val = p.value;
+          if (typeof val === 'number') {
+            if (p.name.toLowerCase().includes('custo') || p.name.toLowerCase().includes('gasto') || p.name.includes('R$')) {
+              val = `R$ ${val.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            } else if (p.name.toLowerCase().includes('km/l')) {
+              val = `${val.toFixed(1)} km/L`;
+            } else if (p.name.toLowerCase().includes('km') || p.name.toLowerCase().includes('rodados')) {
+              val = `${Math.round(val).toLocaleString('pt-BR')} km`;
+            } else if (p.name.toLowerCase().includes('%') || p.name.toLowerCase().includes('taxa')) {
+              val = `${val.toFixed(1)}%`;
+            }
           }
           return (
-            <Typography key={i} sx={{ color: p.color || p.fill, fontSize: '10px', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box component="span" sx={{ width: 6, height: 6, borderRadius: '50%', bgcolor: p.color || p.fill }} />
-              {p.name || p.dataKey}: {value}
+            <Typography key={i} sx={{ color: p.color || p.fill, fontSize: '11px', display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: p.color || p.fill }} />
+              {p.name}: <strong>{val}</strong>
             </Typography>
           );
         })}
@@ -49,337 +96,395 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   return null;
 };
 
-const KpiCardAnalise = ({ title, value, icon, color }: any) => (
-  <Box sx={{ ...glassPanelStyle, p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, height: '100%' }}>
-    <Avatar sx={{ bgcolor: `${color}15`, color: color, width: 36, height: 36, border: `1px solid ${color}30` }}>
-      {React.cloneElement(icon, { fontSize: 'small' })}
+const KpiCard = ({ title, value, subValue, icon, color }: any) => (
+  <Box sx={{ ...glassPanelStyle, flexDirection: 'row', alignItems: 'center', gap: 2, p: 2 }}>
+    <Avatar sx={{ bgcolor: `${color}20`, color: color, width: 48, height: 48, border: `1px solid ${color}40` }}>
+      {React.cloneElement(icon, { fontSize: 'medium' })}
     </Avatar>
     <Box>
-      <Typography variant="caption" sx={{ color: '#9ca3af', fontWeight: 600, fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</Typography>
-      <Typography variant="h6" sx={{ color: 'white', fontWeight: 'bold', lineHeight: 1.1, mt: 0.2 }}>{value}</Typography>
+      <Typography variant="caption" sx={{ color: COLORS.textMuted, fontWeight: 600, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{title}</Typography>
+      <Typography variant="h5" sx={{ color: 'white', fontWeight: 'bold', lineHeight: 1.1, mt: 0.5 }}>{value}</Typography>
+      {subValue && <Typography variant="caption" sx={{ color: subValue.color || COLORS.textMuted, fontSize: '10px', display: 'block', mt: 0.5, fontWeight: 500 }}>{subValue.text}</Typography>}
     </Box>
   </Box>
 );
 
-// Função simples para calcular diferença em dias
-const diffDays = (date1: Date, date2: Date) => {
-  return Math.abs(date1.getTime() - date2.getTime()) / (1000 * 3600 * 24);
-};
-
-// Função para parse simples de datas 'dd/MM/yyyy HH:mm:ss'
-const parseBrDate = (str: string) => {
-  if (!str) return null;
-  const parts = str.split(' ');
-  const dParts = parts[0].split('/');
-  if (dParts.length !== 3) return null;
-  return new Date(Number(dParts[2]), Number(dParts[1]) - 1, Number(dParts[0]));
-};
 
 const Analises: React.FC = () => {
   const vehiclesMap = useVehicleStore(state => state.vehicles);
   const vehicles = Array.from(vehiclesMap.values());
+  const [startDate, setStartDate] = React.useState('');
+  const [endDate, setEndDate] = React.useState('');
 
-  // 1. Cálculos de KPIs Superiores (Adicionando Média de Baixadas)
+  // --- DATA PROCESSING ---
   const kpis = useMemo(() => {
-    let kmTotal = 0, litrosTotal = 0, gastoTotal = 0;
-    let baixadas = 0;
-    let diasEntreRevisoesCount = 0;
-    let diasEntreRevisoesSum = 0;
+    let frotaTotal = vehicles.length;
+    let baixados = 0;
+    
+    let globalKmTotal = 0;
+    let globalGastoTotal = 0;
+    let globalLitrosTotal = 0;
+    
+    const monthlyData: Record<string, { km: number, custo: number, count: number }> = {};
+    const veiculosData: any[] = [];
+
+    const start = startDate ? new Date(startDate).getTime() : 0;
+    const endObj = endDate ? new Date(endDate) : new Date(2100, 1, 1);
+    if (endDate) endObj.setHours(23, 59, 59, 999);
+    const endT = endObj.getTime();
 
     vehicles.forEach(v => {
-      let vKmAtual = v.consolidado?.kmAtual || 0;
-      let vGasto = v.consolidado?.gastoTotalCombustivel || 0;
-      let vLitros = v.consolidado?.volumeTotalLitros || 0;
+      let isBaixado = v.cadastro?.status?.toLowerCase().includes('baixado');
+      if (isBaixado) baixados++;
 
-      // Se consolidado estiver zerado ou ausente, calcular dinamicamente pelos Abastecimentos e Checklists
-      if (vKmAtual === 0) {
-        v.abastecimentos?.forEach(a => {
-          if (a.kmHodometro && a.kmHodometro > vKmAtual) vKmAtual = a.kmHodometro;
-        });
-        v.checklistsDiarios?.forEach(c => {
-          if (c.kmAtual && c.kmAtual > vKmAtual) vKmAtual = c.kmAtual;
-        });
+      let kmInicial = 99999999;
+      let kmFinal = 0;
+      let veiculoGasto = 0;
+      let veiculoLitros = 0;
+      let qtdIntervencoes = 0;
+      
+      v.revisoes?.forEach(r => {
+        const d = parseBrDate(r.dataRevisao || '')?.getTime() || 0;
+        if (d >= start && d <= endT) qtdIntervencoes++;
+      });
+      v.alertas?.forEach(a => {
+        if (a.tipo.includes('AVARIA') || a.tipo.includes('MANUTENCAO')) qtdIntervencoes++;
+      });
+
+      // Process abastecimentos to get km delta and monthly evolution
+      v.abastecimentos?.forEach(a => {
+        const dTime = parseBrDate(a.data || '')?.getTime() || 0;
+        if (dTime >= start && dTime <= endT) {
+            if (a.kmHodometro && a.kmHodometro > 0) {
+              if (a.kmHodometro < kmInicial) kmInicial = a.kmHodometro;
+              if (a.kmHodometro > kmFinal) kmFinal = a.kmHodometro;
+            }
+            
+            const valor = a.valorTotal || 0;
+            const vol = a.volumeLitros || 0;
+            veiculoGasto += valor;
+            veiculoLitros += vol;
+
+            if (a.data) {
+              const d = parseBrDate(a.data);
+              if (d && isValid(d)) {
+                const key = format(d, 'MMM/yy', { locale: ptBR });
+                if (!monthlyData[key]) monthlyData[key] = { km: 0, custo: 0, count: 0 };
+                monthlyData[key].custo += valor;
+                monthlyData[key].count++;
+              }
+            }
+        }
+      });
+
+      let distPercorrida = 0;
+      if (kmFinal > kmInicial) {
+        distPercorrida = kmFinal - kmInicial;
       }
 
-      if (vGasto === 0) {
-        v.abastecimentos?.forEach(a => {
-          vGasto += a.valorTotal || 0;
-          vLitros += a.volumeLitros || 0;
-        });
-      }
-
-      kmTotal += vKmAtual;
-      gastoTotal += vGasto;
-      litrosTotal += vLitros;
-
-      if (v.cadastro?.status?.toLowerCase().includes('baixado')) {
-        baixadas++;
-      }
-
-      // Tentativa de calcular tempo médio entre revisões de uma mesma viatura
-      const revs = v.revisoes?.filter(r => r.dataTroca).sort((a, b) => {
-        const d1 = parseBrDate(a.dataTroca!);
-        const d2 = parseBrDate(b.dataTroca!);
-        if (d1 && d2) return d1.getTime() - d2.getTime();
-        return 0;
-      }) || [];
-
-      if (revs.length >= 2) {
-        for (let i = 1; i < revs.length; i++) {
-          const d1 = parseBrDate(revs[i-1].dataTroca!);
-          const d2 = parseBrDate(revs[i].dataTroca!);
-          if (d1 && d2) {
-            diasEntreRevisoesSum += diffDays(d2, d1);
-            diasEntreRevisoesCount++;
-          }
+      // Distribuição de KM no mês aproximado
+      if (distPercorrida > 0 && v.abastecimentos && v.abastecimentos.length > 1) {
+        const dInicial = parseBrDate(v.abastecimentos[0].data);
+        const dFinal = parseBrDate(v.abastecimentos[v.abastecimentos.length - 1].data);
+        if (dInicial && dFinal) {
+           const key = format(dFinal, 'MMM/yy', { locale: ptBR });
+           if (monthlyData[key]) monthlyData[key].km += distPercorrida;
         }
       }
+
+      globalKmTotal += distPercorrida;
+      globalGastoTotal += veiculoGasto;
+      globalLitrosTotal += veiculoLitros;
+
+      // Calculando Utilização Simulada (Se andou mais de 100km, 100%. Senao proporcional ou 0)
+      // Como não temos dias parados, usaremos KM recente ou Distância Percorrida para gerar a métrica
+      let utilizacao = distPercorrida > 500 ? Math.min(100, 50 + (distPercorrida/1000)*10) : (distPercorrida > 0 ? 30 : 0);
+      if (isBaixado) utilizacao = 0;
+
+      const custoKm = distPercorrida > 0 ? veiculoGasto / distPercorrida : 0;
+      const kml = veiculoLitros > 0 ? distPercorrida / veiculoLitros : 0;
+
+      veiculosData.push({
+        prefixo: v.prefixo,
+        kmPercorrido: distPercorrida,
+        gasto: veiculoGasto,
+        litros: veiculoLitros,
+        custoKm: custoKm > 0 && custoKm < 20 ? custoKm : 0, // Filtro outlier
+        kml: kml > 0 && kml < 30 ? kml : 0, // Filtro outlier
+        utilizacao,
+        intervencoes: qtdIntervencoes,
+        isAtivo: !isBaixado
+      });
     });
+
+    const disponibilidade = frotaTotal > 0 ? ((frotaTotal - baixados) / frotaTotal) * 100 : 0;
+    const custoMedioKm = globalKmTotal > 0 ? globalGastoTotal / globalKmTotal : 0;
     
-    const custoMedioKm = kmTotal > 0 ? gastoTotal / kmTotal : 0;
-    const mediaBaixadas = vehicles.length > 0 ? (baixadas / vehicles.length) * 100 : 0;
-    const tempoMedioRev = diasEntreRevisoesCount > 0 ? diasEntreRevisoesSum / diasEntreRevisoesCount : 0;
+    // Avg Utilização of active vehicles
+    const ativos = veiculosData.filter(v => v.isAtivo);
+    const utilizacaoGlobal = ativos.length > 0 ? ativos.reduce((acc, curr) => acc + curr.utilizacao, 0) / ativos.length : 0;
+
+    // Monthly Array
+    const evoMensal = Object.entries(monthlyData).map(([mes, data]) => ({
+      mes, 
+      Custo: data.custo, 
+      KM: data.km,
+      CustoKm: data.km > 0 ? data.custo / data.km : 0
+    }));
 
     return {
-      kmTotal, gastoTotal, custoMedioKm, 
-      mediaBaixadas, tempoMedioRev
+      disponibilidade,
+      utilizacaoGlobal,
+      globalKmTotal,
+      globalGastoTotal,
+      custoMedioKm,
+      veiculosData,
+      evoMensal
     };
-  }, [vehicles]);
+  }, [vehicles, startDate, endDate]);
 
-  // 2. Gráfico Donut: Problemas Apresentados (Avarias/Alertas)
-  const problemasData = useMemo(() => {
-    const counts: Record<string, number> = {};
-    vehicles.forEach(v => {
-      v.alertas?.forEach(a => {
-        const nome = a.tipo.replace(/_/g, ' ');
-        counts[nome] = (counts[nome] || 0) + 1;
-      });
-    });
-    return Object.entries(counts)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 8); // Top 8 problemas
-  }, [vehicles]);
+  // -- Gráficos Nível 2 e 3 --
+  
+  // Rank Utilização
+  const rankUtilizacao = [...kpis.veiculosData]
+    .filter(v => v.isAtivo)
+    .sort((a, b) => b.utilizacao - a.utilizacao)
+    .slice(0, 10);
 
-  // 3. Gráfico Combinado: Gasto de Combustível vs Total Rodado (Top 10)
-  const gastoKmData = useMemo(() => {
-    return vehicles
-      .map(v => {
-        let gasto = v.consolidado?.gastoTotalCombustivel || 0;
-        let kmAtual = v.consolidado?.kmAtual || 0;
+  // Rank Intervenções (Problemas/Revisões)
+  const rankIntervencoes = [...kpis.veiculosData]
+    .sort((a, b) => b.intervencoes - a.intervencoes)
+    .filter(v => v.intervencoes > 0)
+    .slice(0, 10);
 
-        if (gasto === 0) {
-          v.abastecimentos?.forEach(a => { gasto += a.valorTotal || 0; });
-        }
-        if (kmAtual === 0) {
-          v.abastecimentos?.forEach(a => { if (a.kmHodometro && a.kmHodometro > kmAtual) kmAtual = a.kmHodometro; });
-          v.checklistsDiarios?.forEach(c => { if (c.kmAtual && c.kmAtual > kmAtual) kmAtual = c.kmAtual; });
-        }
+  // Evolução Consolidada (Area chart)
+  const evoData = kpis.evoMensal.length > 0 ? kpis.evoMensal : [
+    { mes: 'Jan', Custo: 0, KM: 0, CustoKm: 0 },
+    { mes: 'Fev', Custo: 0, KM: 0, CustoKm: 0 }
+  ];
 
-        return { prefixo: v.prefixo, gasto, kmAtual };
-      })
-      .filter(v => v.gasto > 0)
-      .sort((a, b) => b.gasto - a.gasto)
-      .slice(0, 10);
-  }, [vehicles]);
-
-  // 4. Lógica de Forecast (Previsão de Data para Revisão Futura)
-  const forecastData = useMemo(() => {
-    const list: any[] = [];
-    vehicles.forEach(v => {
-      let kmAtual = v.consolidado?.kmAtual || 0;
-      if (kmAtual === 0) {
-        v.abastecimentos?.forEach(a => { if (a.kmHodometro && a.kmHodometro > kmAtual) kmAtual = a.kmHodometro; });
-        v.checklistsDiarios?.forEach(c => { if (c.kmAtual && c.kmAtual > kmAtual) kmAtual = c.kmAtual; });
-      }
-      
-      if (kmAtual === 0) return;
-
-      // Pegar a revisão mais crítica ou mais próxima que não está vencida
-      const pendentes = v.revisoes?.filter(r => r.kmParaProximaRevisao !== null && (r.kmParaProximaRevisao || 0) > 0) || [];
-      if (pendentes.length === 0) return;
-      
-      const proximaRev = pendentes.reduce((prev, curr) => 
-        ((curr.kmParaProximaRevisao || 999999) < (prev.kmParaProximaRevisao || 999999)) ? curr : prev
-      );
-
-      const kmFaltante = proximaRev.kmParaProximaRevisao || 0;
-
-      // Calcular média de KM por dia baseado em abastecimentos
-      const abs = v.abastecimentos || [];
-      const absValidos = abs.map(a => ({ ...a, date: parseBrDate(a.data) })).filter(a => a.date !== null && (a.kmHodometro || 0) > 0).sort((a, b) => a.date!.getTime() - b.date!.getTime());
-      
-      let mediaDiaria = 0;
-      if (absValidos.length >= 2) {
-        const first = absValidos[0];
-        const last = absValidos[absValidos.length - 1];
-        const dias = diffDays(last.date!, first.date!) || 1;
-        const dist = (last.kmHodometro || 0) - (first.kmHodometro || 0);
-        if (dist > 0) mediaDiaria = dist / dias;
-      }
-
-      // Fallback: se não tiver histórico suficiente de abastecimentos, assumimos uma média padrão de 100km/dia para a frota.
-      if (mediaDiaria <= 0) mediaDiaria = 100;
-
-      const diasRestantes = Math.ceil(kmFaltante / mediaDiaria);
-      const dataPrevisao = new Date();
-      dataPrevisao.setDate(dataPrevisao.getDate() + diasRestantes);
-
-      list.push({
-        prefixo: v.prefixo,
-        kmAtual,
-        kmFaltante,
-        mediaDiaria: Math.round(mediaDiaria),
-        diasRestantes,
-        dataPrevisao,
-        tipoServico: proximaRev.tipoRevisao || 'Geral'
-      });
-    });
-
-    // Ordenar pelas que precisam de revisão mais cedo
-    return list.sort((a, b) => a.dataPrevisao.getTime() - b.dataPrevisao.getTime()).slice(0, 10);
-  }, [vehicles]);
-
+  // Scatter Eficiência (X=KM, Y=Custo/KM, Z=Intervenções)
+  const scatterData = kpis.veiculosData
+    .filter(v => v.kmPercorrido > 100 && v.custoKm > 0)
+    .map(v => ({
+      name: v.prefixo,
+      KM: v.kmPercorrido,
+      CustoKm: v.custoKm,
+      Ocorrencias: v.intervencoes > 0 ? v.intervencoes : 1
+    }));
 
   return (
-    <Box sx={{ bgcolor: '#0a0e17', minHeight: '100vh', p: { xs: 1.5, md: 2 }, color: 'white', fontFamily: 'Inter, sans-serif' }}>
-      <Typography variant="h6" fontWeight="bold" gutterBottom display="flex" alignItems="center" gap={1} sx={{ color: 'white', mb: 2 }}>
-        <Assessment sx={{ color: '#10b981', fontSize: 24 }} /> Análises & Inteligência Preditiva
-      </Typography>
-
-      {/* Linha 1: KPIs Rápidos (Novos) */}
-      <Box sx={{ display: 'flex', flexWrap: { xs: 'wrap', md: 'nowrap' }, gap: 2, mb: 2, width: '100%' }}>
-        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', md: '22%' } }}>
-          <KpiCardAnalise title="% Viaturas Baixadas" value={`${kpis.mediaBaixadas.toFixed(1)}%`} icon={<EventBusy />} color="#ef4444" />
+    <Box sx={{ bgcolor: '#0a0e17', minHeight: '100vh', p: { xs: 1.5, md: 3 }, color: 'white', fontFamily: 'Inter, sans-serif' }}>
+      
+      {/* CABEÇALHO */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'center' }, mb: 4, gap: 2, flexWrap: 'wrap' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Avatar sx={{ bgcolor: `${COLORS.primary}20`, color: COLORS.primary, width: 40, height: 40, border: `1px solid ${COLORS.primary}40` }}>
+            <Assessment />
+          </Avatar>
+          <Box>
+            <Typography variant="h5" fontWeight="bold">Inteligência & Analytics</Typography>
+            <Typography variant="body2" sx={{ color: COLORS.textMuted }}>Indicadores Estratégicos de Frota</Typography>
+          </Box>
         </Box>
-        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', md: '22%' } }}>
-          <KpiCardAnalise title="Tempo Médio p/ Revisão" value={kpis.tempoMedioRev > 0 ? `${Math.round(kpis.tempoMedioRev)} dias` : 'N/A'} icon={<Build />} color="#3b82f6" />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', md: '22%' } }}>
-          <KpiCardAnalise title="Custo Médio/KM" value={`R$ ${kpis.custoMedioKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} icon={<AttachMoney />} color="#f59e0b" />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', md: '22%' } }}>
-          <KpiCardAnalise title="KM Total Rodado" value={`${kpis.kmTotal.toLocaleString('pt-BR')}`} icon={<Speed />} color="#8b5cf6" />
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Box component="input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} sx={{ ...inputStyle, color: startDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
+          <Typography sx={{ color: '#9ca3af', fontSize: '12px' }}>até</Typography>
+          <Box component="input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} sx={{ ...inputStyle, color: endDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
         </Box>
       </Box>
 
-      {/* Linha 2: Gráficos (Problemas e Gasto/KM) */}
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 2, mb: 2, width: '100%' }}>
-        
-        {/* Problemas Apresentados (Top 8 Alertas) */}
-        <Box sx={{ flex: 1, ...glassPanelStyle, p: 1.5, display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="subtitle2" fontWeight="bold" sx={{ color: '#f43f5e', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Warning sx={{ color: '#f43f5e', fontSize: 16 }} /> Principais Problemas Apresentados
-          </Typography>
-          <Box sx={{ flex: 1, height: 180 }}>
-            {problemasData.length === 0 ? (
-              <Typography variant="caption" sx={{ color: '#9ca3af', display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>Nenhum problema registrado.</Typography>
-            ) : (
+      {/* ==================================================================================== */}
+      {/* NÍVEL 1: VISÃO EXECUTIVA */}
+      {/* ==================================================================================== */}
+      <Typography variant="subtitle2" sx={{ color: COLORS.textMuted, mb: 1, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Nível 1 — Visão Executiva</Typography>
+      
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', lg: 'nowrap' }, mb: 2 }}>
+        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', lg: 0 } }}>
+          <KpiCard 
+            title="Disponibilidade" 
+            value={`${kpis.disponibilidade.toFixed(1)}%`} 
+            icon={<CheckCircleOutlined />} 
+            color={COLORS.success} 
+          />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', lg: 0 } }}>
+          <KpiCard 
+            title="Utilização (Ativos)" 
+            value={`${kpis.utilizacaoGlobal.toFixed(1)}%`} 
+            icon={<DirectionsCar />} 
+            color={COLORS.primary} 
+          />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', lg: 0 } }}>
+          <KpiCard 
+            title="KM Total Rodado" 
+            value={kpis.globalKmTotal.toLocaleString('pt-BR')} 
+            icon={<Speed />} 
+            color={COLORS.purple} 
+          />
+        </Box>
+        <Box sx={{ flex: 1, minWidth: { xs: '100%', sm: '48%', lg: 0 } }}>
+          <KpiCard 
+            title="Custo Médio / KM" 
+            value={`R$ ${kpis.custoMedioKm.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} 
+            icon={<AttachMoney />} 
+            color={COLORS.danger} 
+            subValue={{ text: `Gasto Total: R$ ${kpis.globalGastoTotal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}`, color: COLORS.textMuted }}
+          />
+        </Box>
+      </Box>
+
+      {/* Evolução Temporal (KM e Custos) */}
+      <Box sx={{ width: '100%', mb: 4 }}>
+        <Box sx={{ ...glassPanelStyle, height: 320 }}>
+             <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: COLORS.primary }}>
+               <Speed fontSize="small" /> Evolução de Volume Operacional e Custos
+             </Typography>
+             <Box sx={{ flex: 1, minHeight: 0 }}>
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={problemasData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={70}
-                    paddingAngle={5}
-                    dataKey="value"
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                    labelLine={{ stroke: 'rgba(255,255,255,0.2)' }}
-                    stroke="none"
-                    style={{ fontSize: '9px', fill: '#9ca3af' }}
-                  >
-                    {problemasData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
+                <ComposedChart data={evoData} margin={{ top: 10, right: 10, bottom: 0, left: -20 }}>
+                  <defs>
+                    <linearGradient id="colorCusto" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor={COLORS.danger} stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor={COLORS.danger} stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={COLORS.border} />
+                  <XAxis dataKey="mes" stroke={COLORS.textMuted} tick={{ fontSize: 11 }} />
+                  <YAxis yAxisId="left" tickFormatter={(v) => `R$ ${v/1000}k`} stroke={COLORS.textMuted} tick={{ fontSize: 10 }} />
+                  <YAxis yAxisId="right" orientation="right" tickFormatter={(v) => `${v/1000}k`} stroke={COLORS.textMuted} tick={{ fontSize: 10 }} />
                   <Tooltip content={<CustomTooltip />} />
-                </PieChart>
+                  <Legend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
+                  <Area yAxisId="left" type="monotone" dataKey="Custo" stroke={COLORS.danger} fillOpacity={1} fill="url(#colorCusto)" />
+                  <Bar yAxisId="right" dataKey="KM" fill={COLORS.primary} radius={[4, 4, 0, 0]} barSize={20} />
+                </ComposedChart>
               </ResponsiveContainer>
+             </Box>
+          </Box>
+      </Box>
+
+
+      {/* ==================================================================================== */}
+      {/* NÍVEL 2: VISÃO OPERACIONAL */}
+      {/* ==================================================================================== */}
+      <Typography variant="subtitle2" sx={{ color: COLORS.textMuted, mb: 1, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Nível 2 — Operacional</Typography>
+      
+      <Box sx={{ display: 'flex', gap: 2, flexWrap: { xs: 'wrap', lg: 'nowrap' }, mb: 4 }}>
+        
+        {/* Taxa de Utilização por Veículo */}
+        <Box sx={{ flex: 1, minWidth: { xs: '100%', lg: 0 } }}>
+          <Box sx={{ ...glassPanelStyle, height: 350 }}>
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: COLORS.success }}>
+              <DirectionsCar fontSize="small" /> Taxa de Utilização (%)
+            </Typography>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={rankUtilizacao} layout="vertical" margin={{ top: 0, right: 20, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={COLORS.border} />
+                  <XAxis type="number" domain={[0, 100]} hide />
+                  <YAxis dataKey="prefixo" type="category" stroke={COLORS.textMuted} tick={{ fontSize: 11 }} width={70} />
+                  <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={<CustomTooltip />} />
+                  <Bar dataKey="utilizacao" name="Taxa de Uso" fill={COLORS.success} radius={[0, 4, 4, 0]} barSize={16}>
+                    {/* Exibe o % no final da barra */}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Frequência de Intervenções */}
+        <Box sx={{ flex: 1, minWidth: { xs: '100%', lg: 0 } }}>
+          <Box sx={{ ...glassPanelStyle, height: 350 }}>
+            <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1, color: COLORS.warning }}>
+              <Build fontSize="small" /> Frequência de Intervenções (Manutenções/Alertas)
+            </Typography>
+            <Box sx={{ flex: 1, minHeight: 0 }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={rankIntervencoes} margin={{ top: 10, right: 10, left: -20, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={COLORS.border} />
+                  <XAxis dataKey="prefixo" stroke={COLORS.textMuted} tick={{ fontSize: 10 }} angle={-45} textAnchor="end" />
+                  <YAxis stroke={COLORS.textMuted} tick={{ fontSize: 10 }} allowDecimals={false} />
+                  <Tooltip cursor={{ fill: 'rgba(255,255,255,0.05)' }} content={<CustomTooltip />} />
+                  <Bar dataKey="intervencoes" name="Intervenções" fill={COLORS.warning} radius={[4, 4, 0, 0]} barSize={25} />
+                </BarChart>
+              </ResponsiveContainer>
+            </Box>
+          </Box>
+        </Box>
+
+      </Box>
+
+      {/* ==================================================================================== */}
+      {/* NÍVEL 3: VISÃO ANALÍTICA */}
+      {/* ==================================================================================== */}
+      <Typography variant="subtitle2" sx={{ color: COLORS.textMuted, mb: 1, textTransform: 'uppercase', letterSpacing: 1, fontWeight: 700 }}>Nível 3 — Analítico</Typography>
+      
+      <Box sx={{ width: '100%', mb: 2 }}>
+        
+        {/* Matriz de Eficiência Operacional (Scatter Plot) */}
+        <Box sx={{ width: '100%' }}>
+          <Box sx={{ ...glassPanelStyle, height: 450 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="subtitle2" fontWeight="bold" sx={{ display: 'flex', alignItems: 'center', gap: 1, color: COLORS.purple }}>
+                <ErrorOutlined fontSize="small" /> Matriz de Eficiência Operacional
+              </Typography>
+              <Typography variant="caption" sx={{ color: COLORS.textMuted }}>
+                X: KM Rodados | Y: Custo por KM | Tamanho: Ocorrências
+              </Typography>
+            </Box>
+            
+            {scatterData.length < 2 ? (
+              <Box sx={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center' }}>
+                <Typography sx={{ color: COLORS.textMuted }}>Dados insuficientes para a Matriz de Eficiência.</Typography>
+              </Box>
+            ) : (
+              <Box sx={{ flex: 1, minHeight: 0 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <ScatterChart margin={{ top: 20, right: 30, bottom: 20, left: -10 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={COLORS.border} />
+                    
+                    {/* Eixo X: KM Rodados */}
+                    <XAxis 
+                      type="number" 
+                      dataKey="KM" 
+                      name="KM Rodado" 
+                      stroke={COLORS.textMuted} 
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v) => `${v/1000}k`}
+                    />
+                    
+                    {/* Eixo Y: Custo por KM */}
+                    <YAxis 
+                      type="number" 
+                      dataKey="CustoKm" 
+                      name="Custo/KM" 
+                      stroke={COLORS.textMuted} 
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(v) => `R$ ${v.toFixed(2)}`}
+                    />
+                    
+                    {/* Tamanho da Bolha */}
+                    <ZAxis 
+                      type="number" 
+                      dataKey="Ocorrencias" 
+                      range={[50, 400]} 
+                      name="Ocorrências" 
+                    />
+                    
+                    <Tooltip cursor={{ strokeDasharray: '3 3' }} content={<CustomTooltip />} />
+                    
+                    <Scatter name="Veículos" data={scatterData} fill={COLORS.purple} fillOpacity={0.7} stroke="white" strokeWidth={1} />
+                    
+                  </ScatterChart>
+                </ResponsiveContainer>
+              </Box>
             )}
           </Box>
         </Box>
-
-        {/* Gasto de Combustível vs Total Rodado (Combinado) */}
-        <Box sx={{ flex: 2, ...glassPanelStyle, p: 1.5, display: 'flex', flexDirection: 'column' }}>
-          <Typography variant="subtitle2" fontWeight="bold" sx={{ color: '#10b981', mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-            <LocalGasStation sx={{ color: '#10b981', fontSize: 16 }} /> Custo de Combustível vs KM Total Rodado
-          </Typography>
-          <Box sx={{ flex: 1, height: 180 }}>
-            <ResponsiveContainer width="100%" height="100%">
-              <ComposedChart data={gastoKmData} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.05)" vertical={false} />
-                <XAxis dataKey="prefixo" stroke="rgba(255,255,255,0.2)" tick={{ fill: '#9ca3af', fontSize: 10 }} />
-                <YAxis 
-                  yAxisId="left" 
-                  tickFormatter={(v) => `R$ ${v / 1000}k`} 
-                  stroke="rgba(255,255,255,0.2)" 
-                  tick={{ fill: '#ef4444', fontSize: 10 }} 
-                />
-                <YAxis 
-                  yAxisId="right" 
-                  orientation="right" 
-                  tickFormatter={(v) => `${v / 1000}k`} 
-                  stroke="rgba(255,255,255,0.2)" 
-                  tick={{ fill: '#3b82f6', fontSize: 10 }} 
-                />
-                <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                <Legend wrapperStyle={{ paddingTop: '5px', fontSize: '9px' }} />
-                <Bar yAxisId="left" dataKey="gasto" name="Gasto" fill="#ef4444" radius={[4, 4, 0, 0]} barSize={15} />
-                <Line yAxisId="right" type="monotone" dataKey="kmAtual" name="KM Total" stroke="#3b82f6" strokeWidth={2} dot={{ r: 3, fill: '#3b82f6', stroke: 'white', strokeWidth: 1 }} />
-              </ComposedChart>
-            </ResponsiveContainer>
-          </Box>
-        </Box>
-      </Box>
-
-      {/* Linha 3: Motor de Forecast de Revisões */}
-      <Box sx={{ width: '100%', ...glassPanelStyle, p: 2 }}>
-        <Typography variant="subtitle1" fontWeight="bold" sx={{ color: '#8b5cf6', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CalendarToday sx={{ color: '#8b5cf6', fontSize: 20 }} /> Forecast de Manutenção Preventiva (Top 10 mais próximas)
-        </Typography>
         
-        <TableContainer component={Box} sx={{ bgcolor: 'transparent', '&::-webkit-scrollbar': { height: '6px' }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.1)', borderRadius: '10px' } }}>
-          <Table size="small" sx={{ minWidth: 650 }}>
-            <TableHead>
-              <TableRow sx={{ '& th': { borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase' } }}>
-                <TableCell>Viatura</TableCell>
-                <TableCell>Serviço</TableCell>
-                <TableCell align="right">KM Atual</TableCell>
-                <TableCell align="right">Faltam (KM)</TableCell>
-                <TableCell align="right">Média Diária (KM/Dia)</TableCell>
-                <TableCell align="right">Dias Restantes</TableCell>
-                <TableCell align="right" sx={{ color: '#8b5cf6' }}>Previsão de Parada</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {forecastData.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ borderBottom: 'none', py: 3 }}>
-                    <Typography variant="caption" sx={{ color: '#6b7280' }}>Nenhuma viatura com revisão programada e dados suficientes.</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                forecastData.map((row, idx) => (
-                  <TableRow key={idx} sx={{ '& td': { borderBottom: '1px solid rgba(255,255,255,0.03)', color: 'white', fontSize: '12px' }, '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                    <TableCell sx={{ fontWeight: 'bold' }}>{row.prefixo}</TableCell>
-                    <TableCell><Chip label={row.tipoServico} size="small" sx={{ height: '18px', fontSize: '10px', bgcolor: 'rgba(139, 92, 246, 0.1)', color: '#a78bfa' }} /></TableCell>
-                    <TableCell align="right">{row.kmAtual.toLocaleString('pt-BR')}</TableCell>
-                    <TableCell align="right" sx={{ color: row.kmFaltante < 500 ? '#ef4444' : '#f59e0b', fontWeight: 'bold' }}>
-                      {row.kmFaltante.toLocaleString('pt-BR')}
-                    </TableCell>
-                    <TableCell align="right">{row.mediaDiaria} km</TableCell>
-                    <TableCell align="right">{row.diasRestantes}</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 'bold', color: '#8b5cf6' }}>
-                      {row.dataPrevisao.toLocaleDateString('pt-BR')}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
       </Box>
 
     </Box>

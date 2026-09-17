@@ -1,7 +1,8 @@
 import React, { useMemo, useState } from 'react';
 import { 
   Box, Typography, Table, TableBody, TableCell, TableContainer, 
-  TableHead, TableRow, TablePagination, Select, MenuItem, Chip
+  TableHead, TableRow, TablePagination, Select, MenuItem, Chip,
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, IconButton, Grid
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import FilterAltIcon from '@mui/icons-material/FilterAlt';
@@ -10,6 +11,7 @@ import BuildIcon from '@mui/icons-material/Build';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import WarningIcon from '@mui/icons-material/Warning';
 import OpacityIcon from '@mui/icons-material/Opacity';
+import CloseIcon from '@mui/icons-material/Close';
 import TableViewIcon from '@mui/icons-material/TableView';
 import { useVehicleStore } from '../../store/vehicleStore';
 import type { Revisao } from '../../types';
@@ -63,6 +65,7 @@ const Revisoes: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(15);
+  const [selectedRevisao, setSelectedRevisao] = useState<Revisao | null>(null);
 
   const allRevisoes = useMemo(() => {
     const list: Revisao[] = [];
@@ -135,7 +138,7 @@ const Revisoes: React.FC = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', width: 200 }}>
               <Typography sx={labelStyle}>Prefixo Viatura</Typography>
               <Box sx={{ position: 'relative' }}>
-                <LocalShippingIcon sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 16, zIndex: 10, pointerEvents: 'none' }} />
+                <LocalShippingIcon sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#cbd5e1', fontSize: 16, zIndex: 10, pointerEvents: 'none' }} />
                 <Select
                   value={prefixFilter}
                   onChange={(e) => setPrefixFilter(e.target.value)}
@@ -147,7 +150,7 @@ const Revisoes: React.FC = () => {
                     '& .MuiSelect-select': { padding: '4px 8px 4px 0' },
                     '& fieldset': { border: 'none' }
                   }}
-                  MenuProps={{ PaperProps: { sx: { bgcolor: '#0a0e17', color: 'white', border: '1px solid rgba(255,255,255,0.1)' } } }}
+                  MenuProps={{ slotProps: { paper: { sx: { bgcolor: '#0a0e17', color: 'white', border: '1px solid rgba(255,255,255,0.1)' } } } }}
                 >
                   <MenuItem value="">TODAS AS VIATURAS</MenuItem>
                   {uniquePrefixes.map(p => <MenuItem key={p} value={p}>{p}</MenuItem>)}
@@ -158,7 +161,7 @@ const Revisoes: React.FC = () => {
             <Box sx={{ display: 'flex', flexDirection: 'column', width: 200 }}>
               <Typography sx={labelStyle}>Status</Typography>
               <Box sx={{ position: 'relative' }}>
-                <WarningIcon sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', fontSize: 16, zIndex: 10, pointerEvents: 'none' }} />
+                <WarningIcon sx={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', color: '#cbd5e1', fontSize: 16, zIndex: 10, pointerEvents: 'none' }} />
                 <Select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
@@ -170,7 +173,7 @@ const Revisoes: React.FC = () => {
                     '& .MuiSelect-select': { padding: '4px 8px 4px 0' },
                     '& fieldset': { border: 'none' }
                   }}
-                  MenuProps={{ PaperProps: { sx: { bgcolor: '#0a0e17', color: 'white', border: '1px solid rgba(255,255,255,0.1)' } } }}
+                  MenuProps={{ slotProps: { paper: { sx: { bgcolor: '#0a0e17', color: 'white', border: '1px solid rgba(255,255,255,0.1)' } } } }}
                 >
                   <MenuItem value="">TODOS OS STATUS</MenuItem>
                   <MenuItem value="EM DIA">EM DIA</MenuItem>
@@ -191,7 +194,7 @@ const Revisoes: React.FC = () => {
               <Typography sx={labelStyle}>Total de Revisões</Typography>
               <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1 }}>
                 <Typography sx={{ fontSize: '30px', fontWeight: 900, color: 'white' }}>{totalRevisoes}</Typography>
-                <Typography sx={{ fontSize: '16px', fontWeight: 'bold', color: '#9ca3af', mb: 0.5 }}>registros</Typography>
+                <Typography sx={{ fontSize: '16px', fontWeight: 'bold', color: '#cbd5e1', mb: 0.5 }}>registros</Typography>
               </Box>
             </Box>
           </Box>
@@ -240,7 +243,7 @@ const Revisoes: React.FC = () => {
               <TableViewIcon sx={{ color: '#34d399', fontSize: 18 }} /> Histórico de Revisões
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>Search</Typography>
+              <Typography sx={{ fontSize: '13px', color: '#cbd5e1' }}>Search</Typography>
               <Box component="input" type="search" placeholder="Pesquisar revisão..." value={search} onChange={e => setSearch(e.target.value)} sx={{ ...inputStyle, bgcolor: 'transparent', borderBottom: '1px solid rgba(255,255,255,0.2)', borderRadius: 0, padding: '4px 0' }} />
             </Box>
           </Box>
@@ -249,13 +252,13 @@ const Revisoes: React.FC = () => {
             <Table stickyHeader sx={{ minWidth: 800 }}>
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>DATA DA TROCA</TableCell>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>VIATURA</TableCell>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>TIPO DE REVISÃO</TableCell>
-                  <TableCell align="right" sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>KM DA TROCA</TableCell>
-                  <TableCell align="right" sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>PRÓXIMA (KM)</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>DATA DA TROCA</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>VIATURA</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>TIPO DE REVISÃO</TableCell>
+                  <TableCell align="right" sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>KM DA TROCA</TableCell>
+                  <TableCell align="right" sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>PRÓXIMA (KM)</TableCell>
                   <TableCell align="right" sx={{ bgcolor: '#1f1b2e', color: '#c084fc', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>FALTA (KM)</TableCell>
-                  <TableCell align="center" sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>STATUS</TableCell>
+                  <TableCell align="center" sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>STATUS</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -264,7 +267,7 @@ const Revisoes: React.FC = () => {
                   return (
                     <TableRow 
                       key={`${r.id}-${i}`} 
-                      onClick={() => navigate(`/viaturas/${r.prefixo}`)}
+                      onClick={() => setSelectedRevisao(r)}
                       sx={{ 
                         cursor: 'pointer',
                         transition: 'background-color 0.2s',
@@ -274,7 +277,7 @@ const Revisoes: React.FC = () => {
                     >
                       <TableCell sx={{ fontSize: '13.5px', color: '#5a6f8a' }}>{r.dataTroca}</TableCell>
                       <TableCell sx={{ fontSize: '13.5px', fontWeight: 'bold', fontFamily: 'monospace', color: stringToColor(r.prefixo) }}>{r.prefixo}</TableCell>
-                      <TableCell sx={{ fontSize: '13.5px', color: '#9ca3af', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.tipoRevisao || '-'}</TableCell>
+                      <TableCell sx={{ fontSize: '13.5px', color: '#cbd5e1', maxWidth: '200px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{r.tipoRevisao || '-'}</TableCell>
                       <TableCell align="right" sx={{ fontSize: '13.5px', color: '#d1d5db' }}>{r.kmTroca?.toLocaleString('pt-BR') || '-'}</TableCell>
                       <TableCell align="right" sx={{ fontSize: '13.5px', color: '#60a5fa', fontWeight: 'bold' }}>{r.proximaRevisaoKm?.toLocaleString('pt-BR') || '-'}</TableCell>
                       <TableCell align="right" sx={{ fontSize: '13.5px', color: '#c084fc', fontWeight: 'bold', bgcolor: 'rgba(168,85,247,0.05)' }}>{r.kmParaProximaRevisao ? r.kmParaProximaRevisao.toLocaleString('pt-BR') : '--'}</TableCell>
@@ -307,7 +310,7 @@ const Revisoes: React.FC = () => {
           </TableContainer>
           
           <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Typography sx={{ fontSize: '13px', color: '#9ca3af' }}>
+            <Typography sx={{ fontSize: '13px', color: '#cbd5e1' }}>
               Mostrando {filtered.length > 0 ? page * rowsPerPage + 1 : 0} até {Math.min((page + 1) * rowsPerPage, filtered.length)} de {filtered.length} registros
             </Typography>
             <TablePagination
@@ -330,6 +333,102 @@ const Revisoes: React.FC = () => {
           </Box>
         </Box>
       </Box>
+
+      {/* Modal de Detalhamento */}
+      <Dialog 
+        open={Boolean(selectedRevisao)} 
+        onClose={() => setSelectedRevisao(null)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{ sx: { bgcolor: '#111827', color: 'white', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '16px' } }}
+      >
+        {selectedRevisao && (
+          <>
+            <DialogTitle sx={{ borderBottom: '1px solid rgba(255,255,255,0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" sx={{ color: '#34d399', fontWeight: 'bold' }}>
+                Detalhamento da Revisão - {selectedRevisao.prefixo}
+              </Typography>
+              <IconButton onClick={() => setSelectedRevisao(null)} sx={{ color: 'white' }}><CloseIcon /></IconButton>
+            </DialogTitle>
+            <DialogContent sx={{ mt: 3 }}>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 3 }}>
+                <Box>
+                  <Typography sx={{ ...labelStyle }}>Data da Troca</Typography>
+                  <Typography sx={{ fontWeight: 'bold', color: 'white' }}>{selectedRevisao.dataTroca || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ ...labelStyle }}>Tipo de Revisão</Typography>
+                  <Typography sx={{ fontWeight: 'bold', color: 'white' }}>{selectedRevisao.tipoRevisao || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ ...labelStyle }}>KM da Troca</Typography>
+                  <Typography sx={{ fontWeight: 'bold', color: 'white' }}>{selectedRevisao.kmTroca?.toLocaleString('pt-BR') || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ ...labelStyle }}>Próxima Revisão (KM)</Typography>
+                  <Typography sx={{ fontWeight: 'bold', color: 'white' }}>{selectedRevisao.proximaRevisaoKm?.toLocaleString('pt-BR') || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ ...labelStyle }}>Local da Revisão</Typography>
+                  <Typography sx={{ fontWeight: 'bold', color: 'white' }}>{selectedRevisao.localRevisao || '-'}</Typography>
+                </Box>
+                <Box>
+                  <Typography sx={{ ...labelStyle }}>Status</Typography>
+                  <Typography sx={{ fontWeight: 'bold', color: selectedRevisao.statusRevisao?.toUpperCase() === 'VENCIDO' ? '#ef4444' : '#10b981' }}>{selectedRevisao.statusRevisao || '-'}</Typography>
+                </Box>
+              </Box>
+
+              <Typography variant="subtitle1" sx={{ mt: 4, mb: 2, borderBottom: '1px solid rgba(255,255,255,0.1)', pb: 1, color: '#60a5fa', fontWeight: 'bold' }}>
+                Itens Revisados
+              </Typography>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 3 }}>
+                <Box><Typography sx={{ ...labelStyle }}>Filtro de Óleo</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.filtroOleo || '-'}</Typography></Box>
+                <Box><Typography sx={{ ...labelStyle }}>Composição do Óleo</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.composicaoOleo || '-'}</Typography></Box>
+                <Box><Typography sx={{ ...labelStyle }}>Viscosidade</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.viscosidadeOleo || '-'}</Typography></Box>
+
+                <Box><Typography sx={{ ...labelStyle }}>Filtro de Ar</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.filtroAr || '-'}</Typography></Box>
+                <Box><Typography sx={{ ...labelStyle }}>Filtro de Combustível</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.filtroCombustivel || '-'}</Typography></Box>
+                <Box><Typography sx={{ ...labelStyle }}>Filtro de Água</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.filtroAgua || '-'}</Typography></Box>
+
+                <Box><Typography sx={{ ...labelStyle }}>Fluido de Freio</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.fluidoFreio || '-'}</Typography></Box>
+                <Box><Typography sx={{ ...labelStyle }}>Pastilha de Freio</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.pastilhaFreio || '-'}</Typography></Box>
+                <Box><Typography sx={{ ...labelStyle }}>Disco de Freio</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.discoFreio || '-'}</Typography></Box>
+
+                <Box><Typography sx={{ ...labelStyle }}>Tipo de Pneu</Typography><Typography sx={{ color: 'white' }}>{selectedRevisao.tipoPneu || '-'}</Typography></Box>
+              </Box>
+
+              {selectedRevisao.observacoes && (
+                <Box sx={{ mt: 3 }}>
+                  <Typography sx={{ ...labelStyle }}>Observações</Typography>
+                  <Typography sx={{ bgcolor: 'rgba(255,255,255,0.05)', p: 2, borderRadius: 2, color: '#d1d5db', fontStyle: 'italic' }}>
+                    {selectedRevisao.observacoes}
+                  </Typography>
+                </Box>
+              )}
+            </DialogContent>
+            <DialogActions sx={{ borderTop: '1px solid rgba(255,255,255,0.1)', p: 2, gap: 1 }}>
+              <Button 
+                variant="outlined" 
+                onClick={() => {
+                  setSelectedRevisao(null);
+                  navigate(`/viaturas/${selectedRevisao.prefixo}`);
+                }} 
+                sx={{ color: '#60a5fa', borderColor: 'rgba(96, 165, 250, 0.5)', '&:hover': { borderColor: '#60a5fa', bgcolor: 'rgba(96, 165, 250, 0.1)' } }}
+              >
+                Ver Ficha da Viatura
+              </Button>
+              <Button 
+                variant="contained" 
+                onClick={() => setSelectedRevisao(null)} 
+                sx={{ bgcolor: '#374151', color: 'white', '&:hover': { bgcolor: '#4b5563' } }}
+              >
+                Fechar
+              </Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
     </Box>
   );
 };

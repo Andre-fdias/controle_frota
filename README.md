@@ -33,8 +33,14 @@ O sistema integra e normaliza dados descentralizados provenientes de múltiplas 
 ### 🎨 Design Premium (Glassmorphism & Dark Mode)
 - Interface de altíssima qualidade desenvolvida em **Material UI**.
 - Uso de componentes de vidro (*Glassmorphism*): fundos translúcidos com efeito blur e bordas suaves.
-- Tipografia moderna (Inter) e paletas de cores vibrantes sobre fundo escuro para redução de fadiga visual em turnos de 24h.
+- Layouts complexos e modernos como o formato **Masonry** em 2 colunas rígidas (independentes de zoom).
+- Nova Sidebar *flat* com dropdowns, sem barra de rolagem e ícone exclusivo.
 - Totalmente **Responsivo**: Adaptação perfeita de celulares até grandes monitores de centro de operações.
+
+### ⚡ PWA & Offline-First
+- Progressive Web App ativado (Vite PWA).
+- Service Workers que fazem cache do código em produção, garantindo extrema velocidade nos recarregamentos.
+- *Para atualizar versões forçadamente (furar cache agressivo), utilize abas anônimas ou limpe os dados do site.*
 
 ---
 

@@ -1,11 +1,12 @@
 import React, { useState, useMemo } from 'react';
 import { 
-  Box, Typography, TextField, ButtonGroup, Button, Grid, Card, CardContent, 
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, Chip, IconButton
+  Box, Typography, ButtonGroup, Button, Grid, 
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip, IconButton
 } from '@mui/material';
 import ViewModule from '@mui/icons-material/ViewModule';
 import ViewList from '@mui/icons-material/ViewList';
 import ChevronRight from '@mui/icons-material/ChevronRight';
+import DirectionsCar from '@mui/icons-material/DirectionsCar';
 import Warning from '@mui/icons-material/Warning';
 import { useNavigate } from 'react-router-dom';
 import { useVehicleStore } from '../../store/vehicleStore';
@@ -40,7 +41,10 @@ const Viaturas: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('ALL');
 
   const filteredVehicles = useMemo(() => {
-    let list = Array.from(vehiclesMap.values());
+    let list = Array.from(vehiclesMap.values()).filter(v => 
+      v.prefixo && String(v.prefixo).trim() !== '' && 
+      v.cadastro && v.cadastro.status && String(v.cadastro.status).trim() !== ''
+    );
 
     // Search
     if (search) {
@@ -87,7 +91,7 @@ const Viaturas: React.FC = () => {
 
   return (
     <Box sx={{ bgcolor: '#0a0e17', minHeight: '100vh', p: { xs: 2, md: 3 }, color: 'white', fontFamily: 'Inter, sans-serif' }}>
-      <Typography variant="h4" fontWeight="bold" gutterBottom sx={{ color: 'white', mb: 3 }}>Viaturas</Typography>
+      <Typography variant="h4" gutterBottom sx={{ fontWeight: 'bold', color: 'white', mb: 3 }}>Viaturas</Typography>
       
       <Box sx={{ 
         ...glassPanelStyle, p: 2, mb: 4, 
@@ -108,8 +112,8 @@ const Viaturas: React.FC = () => {
           />
         </Box>
         
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'nowrap', overflowX: 'auto', pb: { xs: 1, lg: 0 }, flexGrow: 1 }}>
-          <ButtonGroup variant="outlined" size="small" sx={{ flexShrink: 0, '& .MuiButton-root': { borderColor: 'rgba(255,255,255,0.2)', color: '#9ca3af' }, '& .MuiButton-contained': { bgcolor: 'rgba(255,255,255,0.1)', color: 'white' } }}>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'nowrap', overflowX: 'auto', pb: { xs: 1, lg: 0 }, flexGrow: 1, justifyContent: { lg: 'flex-end' } }}>
+          <ButtonGroup variant="outlined" size="small" sx={{ flexShrink: 0, '& .MuiButton-root': { borderColor: 'rgba(255,255,255,0.2)', color: '#cbd5e1' }, '& .MuiButton-contained': { bgcolor: 'rgba(255,255,255,0.1)', color: 'white' } }}>
             {(['ALL', 'OPERANDO', 'RESERVA', 'BAIXADO', 'ALERTAS', 'AVARIAS'] as FilterStatus[]).map(f => (
               <Button 
                 key={f} 
@@ -121,7 +125,7 @@ const Viaturas: React.FC = () => {
             ))}
           </ButtonGroup>
 
-          <ButtonGroup variant="outlined" size="small" sx={{ flexShrink: 0, '& .MuiButton-root': { borderColor: 'rgba(255,255,255,0.2)', color: '#9ca3af' }, '& .MuiButton-contained': { bgcolor: 'rgba(255,255,255,0.1)', color: 'white' } }}>
+          <ButtonGroup variant="outlined" size="small" sx={{ flexShrink: 0, '& .MuiButton-root': { borderColor: 'rgba(255,255,255,0.2)', color: '#cbd5e1' }, '& .MuiButton-contained': { bgcolor: 'rgba(255,255,255,0.1)', color: 'white' } }}>
             <Button variant={viewMode === 'card' ? 'contained' : 'outlined'} onClick={() => setViewMode('card')}>
               <ViewModule />
             </Button>
@@ -133,48 +137,57 @@ const Viaturas: React.FC = () => {
       </Box>
 
       {viewMode === 'card' ? (
-        <Grid container spacing={3} alignItems="stretch">
+        <Grid container spacing={2} sx={{ alignItems: 'stretch' }}>
           {filteredVehicles.map(v => (
-            <Grid item size={{ xs: 12, sm: 6, md: 4, lg: 3 }} key={v.prefixo} sx={{ display: 'flex' }}>
+            <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2.4 }} key={v.prefixo} sx={{ display: 'flex' }}>
               <Box 
                 sx={{ 
                   ...glassPanelStyle,
-                  p: 2.5,
+                  p: 2,
                   cursor: 'pointer', 
                   transition: 'all 0.2s ease', 
                   width: '100%',
                   display: 'flex',
                   flexDirection: 'column',
+                  position: 'relative',
+                  overflow: 'hidden',
                   '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 10px 20px rgba(0,0,0,0.3)', bgcolor: 'rgba(255,255,255,0.05)' } 
                 }}
                 onClick={() => navigate(`/viaturas/${v.prefixo}`)}
               >
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
-                  <Typography variant="h5" fontWeight="bold" sx={{ color: '#eab308' }}>{v.prefixo}</Typography>
-                  <Chip 
-                    label={v.cadastro?.status || 'S/ STATUS'} 
-                    size="small" 
-                    sx={{ 
-                      bgcolor: getStatusColor(v.cadastro?.status) === 'success' ? 'rgba(16, 185, 129, 0.1)' : getStatusColor(v.cadastro?.status) === 'warning' ? 'rgba(245, 158, 11, 0.1)' : getStatusColor(v.cadastro?.status) === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.1)',
-                      color: getStatusColor(v.cadastro?.status) === 'success' ? '#10b981' : getStatusColor(v.cadastro?.status) === 'warning' ? '#f59e0b' : getStatusColor(v.cadastro?.status) === 'error' ? '#ef4444' : '#9ca3af',
-                      fontWeight: 'bold',
-                      fontSize: '11px',
-                      border: '1px solid transparent',
-                      borderColor: getStatusColor(v.cadastro?.status) === 'success' ? 'rgba(16, 185, 129, 0.2)' : getStatusColor(v.cadastro?.status) === 'warning' ? 'rgba(245, 158, 11, 0.2)' : getStatusColor(v.cadastro?.status) === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.2)'
-                    }} 
-                  />
+                <Box sx={{ position: 'absolute', right: -15, top: -15, color: 'rgba(234, 179, 8, 0.05)', transform: 'rotate(-15deg)', zIndex: 0 }}>
+                  <DirectionsCar sx={{ fontSize: 90 }} />
                 </Box>
-                <Typography variant="body2" sx={{ color: '#9ca3af', mt: 'auto', mb: 0.5 }} noWrap>
-                  Placa: <span style={{ color: 'white', fontWeight: 500 }}>{v.cadastro?.placa || 'N/A'}</span>
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#9ca3af', mb: 0.5 }} noWrap>
-                  Modelo: <span style={{ color: 'white', fontWeight: 500 }}>{v.cadastro?.modelo || 'N/A'}</span>
-                </Typography>
-                <Typography variant="body2" sx={{ color: '#9ca3af' }} noWrap>
-                  Base: <span style={{ color: 'white', fontWeight: 500 }}>{v.cadastro?.opmcb || 'N/A'}</span>
-                </Typography>
-                <Box mt={2} display="flex" gap={1}>
-                  {v.alertas.length > 0 && <Chip icon={<Warning sx={{ fontSize: '14px' }} />} label={`${v.alertas.length} Alerta${v.alertas.length > 1 ? 's' : ''}`} size="small" sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: 'bold', fontSize: '11px' }} />}
+                
+                <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', flexDirection: 'column', height: '100%' }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 'bold', color: '#eab308', fontSize: '1.1rem' }}>{v.prefixo}</Typography>
+                    <Chip 
+                      label={v.cadastro?.status || 'S/ STATUS'} 
+                      size="small" 
+                      sx={{ 
+                        bgcolor: getStatusColor(v.cadastro?.status) === 'success' ? 'rgba(16, 185, 129, 0.1)' : getStatusColor(v.cadastro?.status) === 'warning' ? 'rgba(245, 158, 11, 0.1)' : getStatusColor(v.cadastro?.status) === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.1)',
+                        color: getStatusColor(v.cadastro?.status) === 'success' ? '#10b981' : getStatusColor(v.cadastro?.status) === 'warning' ? '#f59e0b' : getStatusColor(v.cadastro?.status) === 'error' ? '#ef4444' : '#cbd5e1',
+                        fontWeight: 'bold',
+                        fontSize: '9px',
+                        height: '20px',
+                        border: '1px solid transparent',
+                        borderColor: getStatusColor(v.cadastro?.status) === 'success' ? 'rgba(16, 185, 129, 0.2)' : getStatusColor(v.cadastro?.status) === 'warning' ? 'rgba(245, 158, 11, 0.2)' : getStatusColor(v.cadastro?.status) === 'error' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(255,255,255,0.2)'
+                      }} 
+                    />
+                  </Box>
+                  <Typography variant="caption" sx={{ color: '#cbd5e1', mt: 'auto', mb: 0.5, fontSize: '11px' }} noWrap>
+                    Placa: <span style={{ color: 'white', fontWeight: 500 }}>{v.cadastro?.placa || 'N/A'}</span>
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#cbd5e1', mb: 0.5, fontSize: '11px' }} noWrap>
+                    Modelo: <span style={{ color: 'white', fontWeight: 500 }}>{v.cadastro?.modelo || 'N/A'}</span>
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#cbd5e1', fontSize: '11px' }} noWrap>
+                    Base: <span style={{ color: 'white', fontWeight: 500 }}>{v.cadastro?.opmcb || 'N/A'}</span>
+                  </Typography>
+                  <Box sx={{ mt: 1.5, display: 'flex', gap: 1 }}>
+                    {v.alertas.length > 0 && <Chip icon={<Warning sx={{ fontSize: '12px' }} />} label={`${v.alertas.length} Alerta${v.alertas.length > 1 ? 's' : ''}`} size="small" sx={{ height: '20px', bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: 'bold', fontSize: '9px' }} />}
+                  </Box>
                 </Box>
               </Box>
             </Grid>
@@ -186,13 +199,13 @@ const Viaturas: React.FC = () => {
             <Table stickyHeader size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Prefixo</TableCell>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Placa</TableCell>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Modelo</TableCell>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Status</TableCell>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Base</TableCell>
-                  <TableCell sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Alertas</TableCell>
-                  <TableCell align="right" sx={{ bgcolor: '#111827', color: '#9ca3af', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Ação</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Prefixo</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Placa</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Modelo</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Status</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Base</TableCell>
+                  <TableCell sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Alertas</TableCell>
+                  <TableCell align="right" sx={{ bgcolor: '#111827', color: '#cbd5e1', fontWeight: 'bold', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>Ação</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -217,7 +230,7 @@ const Viaturas: React.FC = () => {
                         size="small" 
                         sx={{ 
                           bgcolor: getStatusColor(v.cadastro?.status) === 'success' ? 'rgba(16, 185, 129, 0.1)' : getStatusColor(v.cadastro?.status) === 'warning' ? 'rgba(245, 158, 11, 0.1)' : getStatusColor(v.cadastro?.status) === 'error' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.1)',
-                          color: getStatusColor(v.cadastro?.status) === 'success' ? '#10b981' : getStatusColor(v.cadastro?.status) === 'warning' ? '#f59e0b' : getStatusColor(v.cadastro?.status) === 'error' ? '#ef4444' : '#9ca3af',
+                          color: getStatusColor(v.cadastro?.status) === 'success' ? '#10b981' : getStatusColor(v.cadastro?.status) === 'warning' ? '#f59e0b' : getStatusColor(v.cadastro?.status) === 'error' ? '#ef4444' : '#cbd5e1',
                           fontWeight: 'bold',
                           fontSize: '11px',
                           border: '1px solid transparent',
@@ -225,12 +238,12 @@ const Viaturas: React.FC = () => {
                         }} 
                       />
                     </TableCell>
-                    <TableCell sx={{ color: '#9ca3af' }}>{v.cadastro?.opmcb || '-'}</TableCell>
+                    <TableCell sx={{ color: '#cbd5e1' }}>{v.cadastro?.opmcb || '-'}</TableCell>
                     <TableCell>
                       {v.alertas.length > 0 ? <Chip label={v.alertas.length} size="small" sx={{ bgcolor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid rgba(239, 68, 68, 0.2)', fontWeight: 'bold' }} /> : '-'}
                     </TableCell>
                     <TableCell align="right">
-                      <IconButton size="small" sx={{ color: '#9ca3af' }}><ChevronRight /></IconButton>
+                      <IconButton size="small" sx={{ color: '#cbd5e1' }}><ChevronRight /></IconButton>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -241,8 +254,8 @@ const Viaturas: React.FC = () => {
       )}
 
       {filteredVehicles.length === 0 && (
-        <Box textAlign="center" mt={8}>
-          <Typography variant="h6" sx={{ color: '#9ca3af' }}>Nenhuma viatura encontrada com os filtros atuais.</Typography>
+        <Box sx={{ textAlign: 'center', mt: 8 }}>
+          <Typography variant="h6" sx={{ color: '#cbd5e1' }}>Nenhuma viatura encontrada com os filtros atuais.</Typography>
         </Box>
       )}
     </Box>

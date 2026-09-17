@@ -203,7 +203,7 @@ export function processRelationships(data: RawDataPayload): RelationshipResult {
     const diario: ChecklistDiario = {
       timestamp: String(record.values['Carimbo de data/hora'] || ''),
       email: String(record.values['Endereço de e-mail'] || '') || null,
-      motorista: String(record.values['[01] MOTORISTA RESPONSÁVEL'] || record.values['01. MOTORISTA RESPONSÁVEL'] || '') || null,
+      motorista: String(record.values['[01] MOTORISTA RESPONSÁVEL (GRADUAÇÃO / NOME DE GUERRA)'] || record.values['[01] MOTORISTA RESPONSÁVEL'] || record.values['01. MOTORISTA RESPONSÁVEL'] || '') || null,
       reMotorista: String(record.values['[02] RE DO MOTORISTA'] || record.values['02. RE DO MOTORISTA'] || '') || null,
       prontidaoTurno: String(record.values['[03] PRONTIDÃO / TURNO DE SERVIÇO'] || '') || null,
       dataConferencia: String(record.values['[04] DATA DA CONFERÊNCIA'] || '') || null,
@@ -248,9 +248,9 @@ export function processRelationships(data: RawDataPayload): RelationshipResult {
     const semanal: ChecklistSemanal = {
       timestamp: String(record.values['Carimbo de data/hora'] || ''),
       email: String(record.values['Endereço de e-mail'] || '') || null,
-      responsavel: String(record.values['01. MOTORISTA RESPONSÁVEL'] || '') || null,
-      reResponsavel: String(record.values['02. RE DO MOTORISTA'] || '') || null,
-      dataConferencia: String(record.values['04. DATA DA CONFERÊNCIA'] || '') || null,
+      responsavel: String(record.values['[01] MOTORISTA RESPONSÁVEL (GRADUAÇÃO / NOME DE GUERRA)'] || record.values['[01] MOTORISTA RESPONSÁVEL'] || record.values['01. MOTORISTA RESPONSÁVEL'] || '') || null,
+      reResponsavel: String(record.values['[02] RE DO MOTORISTA'] || record.values['02. RE DO MOTORISTA'] || '') || null,
+      dataConferencia: String(record.values['[04] DATA DA CONFERÊNCIA'] || record.values['04. DATA DA CONFERÊNCIA'] || '') || null,
       baseOperacional: String(record.values['05. BASE OPERACIONAL'] || '') || null,
       prefixo: String(record.values['06. PREFIXO DA VIATURA'] || prefixo),
       kmAtual: Number(record.values['07. QUILOMETRAGEM ATUAL (ODÔMETRO)']) || null,

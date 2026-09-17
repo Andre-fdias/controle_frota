@@ -15,6 +15,7 @@ import Checklists from './pages/Checklists';
 import Avarias from './pages/Avarias';
 import Integridade from './pages/Integridade';
 import Analises from './pages/Analises';
+import FontesDeDados from './pages/FontesDeDados';
 
 // Orchestration
 import { fetchAllData } from './services/googleSheetsService';
@@ -87,6 +88,7 @@ const App: React.FC = () => {
             <Route path="/avarias" element={<Avarias />} />
             <Route path="/integridade" element={<Integridade />} />
             <Route path="/analises" element={<Analises />} />
+            <Route path="/fontes-de-dados" element={<FontesDeDados />} />
           </Routes>
         </Layout>
       </Router>

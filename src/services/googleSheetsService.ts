@@ -51,11 +51,26 @@ async function fetchSheet(sheetName: string): Promise<RawRecord[]> {
         const rowVals = rows[i].c.map((cell: any) => cell && cell.v !== null && cell.v !== undefined ? String(cell.v).trim() : '');
         if (rowVals.includes('Prefixo') || rowVals.includes('Viatura') || rowVals.includes('Carimbo de data/hora')) {
           // Found the header row!
-          // Some headers might be empty due to merges, we can merge with cols.label if needed, but usually rowVals is better
           headers = rowVals.map((val: string, idx: number) => val || headers[idx] || '');
           dataStartIndex = i + 1;
+          
+          // Hardcoded fallback for missing headers in Cadastro_Revisoes due to merged cells
+          if (sheetName === 'Cadastro_Revisoes') {
+            if (!headers[13]) headers[13] = 'Data da Troca';
+            if (!headers[14]) headers[14] = 'Km da troca';
+            if (!headers[15]) headers[15] = 'Próxima Revisão (Km)';
+            if (!headers[18]) headers[18] = 'Km para Próxima Revisão';
+          }
           break;
         }
+      }
+    } else {
+      // If we already had valid headers from cols, we still need to apply the fallback
+      if (sheetName === 'Cadastro_Revisoes') {
+        if (!headers[13]) headers[13] = 'Data da Troca';
+        if (!headers[14]) headers[14] = 'Km da troca';
+        if (!headers[15]) headers[15] = 'Próxima Revisão (Km)';
+        if (!headers[18]) headers[18] = 'Km para Próxima Revisão';
       }
     }
 
@@ -81,6 +96,9 @@ async function fetchSheet(sheetName: string): Promise<RawRecord[]> {
               const day = parts[3].padStart(2, '0');
               val = `${day}/${month}/${year}`;
             }
+          } else if (cell && cell.f && typeof cell.v === 'number' && sheetName === 'Cadastro_Revisoes' && (header === 'Data da Troca' || header === 'Km da troca' || header === 'Próxima Revisão (Km)' || header === 'Km para Próxima Revisão')) {
+            // Keep original number for km, but prefer string format for dates if not captured above
+            if (header === 'Data da Troca') val = cell.f;
           }
           
           values[header] = val;

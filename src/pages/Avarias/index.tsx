@@ -24,15 +24,17 @@ const glassPanelStyle = {
 };
 
 const inputStyle = {
-  backgroundColor: '#0a0e17',
-  border: '1px solid rgba(255,255,255,0.1)',
-  borderRadius: '12px',
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  borderRadius: '8px',
   color: 'white',
-  padding: '8px 12px',
+  padding: '8px 16px',
   fontSize: '13px',
   outline: 'none',
   transition: 'border-color 0.2s',
-  '&:focus': { borderColor: 'rgba(52, 211, 153, 0.5)' }
+  colorScheme: 'dark',
+  '&:focus': { borderColor: 'rgba(52, 211, 153, 0.5)' },
+  '&::-webkit-calendar-picker-indicator': { opacity: 0.7, cursor: 'pointer' }
 };
 
 function stringToColor(string: string) {
@@ -54,6 +56,8 @@ const Avarias: React.FC = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(25);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
 
   const allAvarias = useMemo(() => {
     const list: AvariaRow[] = [];
@@ -88,15 +92,46 @@ const Avarias: React.FC = () => {
     return list;
   }, [vehiclesMap]);
 
+  const parseBrDate = (dateStr: string) => {
+    if (!dateStr) return new Date(0);
+    if (dateStr.includes('/')) {
+      const [datePart, timePart] = dateStr.split(' ');
+      if (datePart) {
+        const [day, month, year] = datePart.split('/');
+        if (day && month && year) {
+          return new Date(`${year}-${month}-${day}T${timePart || '00:00:00'}`);
+        }
+      }
+    }
+    const d = new Date(dateStr);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  };
+
   const filtered = useMemo(() => {
-    if (!search) return allAvarias;
-    const q = search.toLowerCase();
-    return allAvarias.filter(a => 
-      a.prefixo.toLowerCase().includes(q) ||
-      a.descricao.toLowerCase().includes(q) ||
-      a.responsavel.toLowerCase().includes(q)
-    );
-  }, [allAvarias, search]);
+    let result = allAvarias;
+    
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(a => 
+        a.prefixo.toLowerCase().includes(q) ||
+        a.descricao.toLowerCase().includes(q) ||
+        a.responsavel.toLowerCase().includes(q)
+      );
+    }
+
+    if (startDate) {
+      const start = new Date(startDate).getTime();
+      result = result.filter(a => parseBrDate(a.data || '').getTime() >= start);
+    }
+    if (endDate) {
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      const endT = end.getTime();
+      result = result.filter(a => parseBrDate(a.data || '').getTime() <= endT);
+    }
+
+    return result;
+  }, [allAvarias, search, startDate, endDate]);
 
   const handleChangePage = (_: unknown, newPage: number) => setPage(newPage);
   const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -108,13 +143,17 @@ const Avarias: React.FC = () => {
 
   return (
     <Box sx={{ bgcolor: '#0a0e17', minHeight: '100vh', p: { xs: 2, md: 3 }, color: 'white', fontFamily: 'Inter, sans-serif' }}>
-      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'center' }, mb: 3, gap: 2 }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'center' }, mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Typography variant="h4" fontWeight="bold" display="flex" alignItems="center" gap={1} sx={{ color: 'white', m: 0 }}>
           <Warning sx={{ color: '#ef4444', fontSize: 32 }} /> Avarias e Anomalias
         </Typography>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: { xs: '100%', md: 'auto' } }}>
-          <Typography sx={{ fontSize: '13px', color: '#9ca3af', display: { xs: 'none', md: 'block' } }}>Search</Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: { xs: '100%', md: 'auto' }, flexWrap: 'wrap', justifyContent: { xs: 'flex-start', md: 'flex-end' } }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box component="input" type="date" value={startDate} onChange={e => { setStartDate(e.target.value); setPage(0); }} sx={{ ...inputStyle, color: startDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
+            <Typography sx={{ color: '#9ca3af', fontSize: '12px' }}>até</Typography>
+            <Box component="input" type="date" value={endDate} onChange={e => { setEndDate(e.target.value); setPage(0); }} sx={{ ...inputStyle, color: endDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
+          </Box>
           <Box 
             component="input" 
             type="search" 

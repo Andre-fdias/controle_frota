@@ -83,6 +83,12 @@ export const getTheme = (mode: 'light' | 'dark') => createTheme({
       },
     },
     MuiButton: {
+      variants: [
+        {
+          props: { variant: 'contained', color: 'primary' },
+          style: { color: '#000000' }
+        }
+      ],
       styleOverrides: {
         root: {
           borderRadius: 10,
@@ -90,9 +96,6 @@ export const getTheme = (mode: 'light' | 'dark') => createTheme({
           fontWeight: 600,
           boxShadow: 'none',
         },
-        containedPrimary: {
-          color: '#000000', 
-        }
       },
     },
     MuiTextField: {

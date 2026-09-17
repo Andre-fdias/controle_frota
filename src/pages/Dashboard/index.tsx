@@ -20,7 +20,6 @@ import DashboardIcon from '@mui/icons-material/Dashboard';
 import AssignmentTurnedIn from '@mui/icons-material/AssignmentTurnedIn';
 import CancelOutlined from '@mui/icons-material/CancelOutlined';
 import { useVehicleStore } from '../../store/vehicleStore';
-import { useFilterStore } from '../../store/filterStore';
 
 const glassPanelStyle = {
   background: 'rgba(255, 255, 255, 0.03)',
@@ -66,7 +65,7 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, icon, color, subtitle }
       }}>
         {React.cloneElement(icon as React.ReactElement, { fontSize: 'small' })}
       </Box>
-      <Typography variant="subtitle2" sx={{ color: '#9ca3af', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+      <Typography variant="subtitle2" sx={{ color: '#cbd5e1', fontWeight: 600, fontSize: '0.65rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         {title}
       </Typography>
     </Box>
@@ -83,48 +82,104 @@ const KpiCard: React.FC<KpiCardProps> = ({ title, value, icon, color, subtitle }
   </Box>
 );
 
+const inputStyle = {
+  backgroundColor: 'rgba(255, 255, 255, 0.05)',
+  border: '1px solid rgba(255, 255, 255, 0.1)',
+  borderRadius: '8px',
+  color: 'white',
+  padding: '8px 16px',
+  fontSize: '13px',
+  outline: 'none',
+  transition: 'border-color 0.2s',
+  colorScheme: 'dark',
+  '&:focus': { borderColor: 'rgba(52, 211, 153, 0.5)' },
+  '&::-webkit-calendar-picker-indicator': { opacity: 0.7, cursor: 'pointer' }
+};
+
+const parseBrDate = (dateStr: string) => {
+  if (!dateStr) return new Date(0);
+  if (dateStr.includes('/')) {
+    const [datePart, timePart] = dateStr.split(' ');
+    if (datePart) {
+      const [day, month, year] = datePart.split('/');
+      if (day && month && year) {
+        return new Date(`${year}-${month}-${day}T${timePart || '00:00:00'}`);
+      }
+    }
+  }
+  const d = new Date(dateStr);
+  return isNaN(d.getTime()) ? new Date(0) : d;
+};
+
 const Dashboard: React.FC = () => {
   const vehiclesMap = useVehicleStore(state => state.vehicles);
   const systemState = useVehicleStore(state => state.systemState);
-  const filters = useFilterStore(state => state.filters);
-
-  // Apply global filters
+  const [startDate, setStartDate] = React.useState('');
+  const [endDate, setEndDate] = React.useState('');
+  // Filter out empty rows that might have been accidentally parsed
   const filteredVehicles = useMemo(() => {
-    let list = Array.from(vehiclesMap.values());
-    if (filters.status.length > 0) {
-      list = list.filter(v => {
-        const s = v.cadastro?.status?.toLowerCase() || '';
-        return filters.status.some(fs => s.includes(fs.toLowerCase()));
-      });
-    }
-    return list;
-  }, [vehiclesMap, filters]);
+    return Array.from(vehiclesMap.values()).filter(v => 
+      v.prefixo && String(v.prefixo).trim() !== '' && 
+      v.cadastro && v.cadastro.status && String(v.cadastro.status).trim() !== ''
+    );
+  }, [vehiclesMap]);
 
   const kpis = useMemo(() => {
     let total = filteredVehicles.length;
     let operando = 0, reserva = 0, baixado = 0;
     let kmTotal = 0, litros = 0, gastoTotal = 0;
     
+    const start = startDate ? new Date(startDate).getTime() : 0;
+    const endObj = endDate ? new Date(endDate) : new Date(2100, 1, 1);
+    if (endDate) endObj.setHours(23, 59, 59, 999);
+    const end = endObj.getTime();
+
     filteredVehicles.forEach(v => {
       const status = v.cadastro?.status?.toLowerCase() || '';
       if (status.includes('operando')) operando++;
       else if (status.includes('reserva')) reserva++;
       else if (status.includes('baixado')) baixado++;
 
-      let vKmAtual = v.consolidado?.kmAtual || 0;
-      let vGasto = v.consolidado?.gastoTotalCombustivel || 0;
-      let vLitros = v.consolidado?.volumeTotalLitros || 0;
+      let vGasto = 0;
+      let vLitros = 0;
+      let vKmInicial = 999999999;
+      let vKmFinal = 0;
 
-      if (vKmAtual === 0) {
-        v.abastecimentos?.forEach(a => { if (a.kmHodometro && a.kmHodometro > vKmAtual) vKmAtual = a.kmHodometro; });
-        v.checklistsDiarios?.forEach(c => { if (c.kmAtual && c.kmAtual > vKmAtual) vKmAtual = c.kmAtual; });
-      }
-
-      if (vGasto === 0) {
-        v.abastecimentos?.forEach(a => {
+      v.abastecimentos?.forEach(a => {
+        const d = parseBrDate(a.data || '').getTime();
+        if (d >= start && d <= end) {
           vGasto += a.valorTotal || 0;
           vLitros += a.volumeLitros || 0;
-        });
+          if (a.kmHodometro) {
+            if (a.kmHodometro < vKmInicial) vKmInicial = a.kmHodometro;
+            if (a.kmHodometro > vKmFinal) vKmFinal = a.kmHodometro;
+          }
+        }
+      });
+      
+      v.checklistsDiarios?.forEach(c => {
+         const d = parseBrDate(c.timestamp || '').getTime();
+         if (d >= start && d <= end) {
+            if (c.kmAtual) {
+              if (c.kmAtual < vKmInicial) vKmInicial = c.kmAtual;
+              if (c.kmAtual > vKmFinal) vKmFinal = c.kmAtual;
+            }
+         }
+      });
+      
+      let vKmAtual = 0;
+      if (vKmFinal > vKmInicial) {
+         vKmAtual = vKmFinal - vKmInicial;
+      } else if (vKmFinal > 0 && !startDate && !endDate) {
+         // If no filter, use the max km found as total km (or better yet, just use the delta if we have it)
+         // Actually, the original logic just summed kmAtual of all vehicles. 
+         // Let's use v.consolidado.kmAtual if no dates are set.
+         vKmAtual = v.consolidado?.kmAtual || vKmFinal;
+      }
+      
+      if (!startDate && !endDate && vGasto === 0) {
+          vGasto = v.consolidado?.gastoTotalCombustivel || 0;
+          vLitros = v.consolidado?.volumeTotalLitros || 0;
       }
 
       kmTotal += vKmAtual;
@@ -133,7 +188,7 @@ const Dashboard: React.FC = () => {
     });
 
     return { total, operando, reserva, baixado, kmTotal, litros, gastoTotal };
-  }, [filteredVehicles]);
+  }, [filteredVehicles, startDate, endDate]);
 
   const allAlerts = useMemo(() => {
     return filteredVehicles.flatMap(v => 
@@ -189,12 +244,17 @@ const Dashboard: React.FC = () => {
 
   return (
     <Box sx={{ bgcolor: '#0a0e17', minHeight: '100vh', p: { xs: 2, md: 3 }, color: 'white', fontFamily: 'Inter, sans-serif' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" fontWeight="bold" display="flex" alignItems="center" gap={1.5} sx={{ color: 'white' }}>
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, justifyContent: 'space-between', alignItems: { md: 'center' }, mb: 4, gap: 2, flexWrap: 'wrap' }}>
+        <Typography variant="h4"  display="flex" alignItems="center" gap={1.5} sx={{ fontWeight: "bold",  color: 'white'  }}>
           <DashboardIcon sx={{ color: '#3b82f6', fontSize: 32 }} /> Centro de Comando
         </Typography>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+            <Box component="input" type="date" value={startDate} onChange={e => setStartDate(e.target.value)} sx={{ ...inputStyle, color: startDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
+            <Typography sx={{ color: '#9ca3af', fontSize: '12px' }}>até</Typography>
+            <Box component="input" type="date" value={endDate} onChange={e => setEndDate(e.target.value)} sx={{ ...inputStyle, color: endDate ? 'white' : '#9ca3af', width: { xs: '100%', sm: 'auto' } }} />
+          </Box>
           <MuiAlert 
             severity={systemState.status === 'Não foi possível atualizar' ? 'error' : 'info'} 
             icon={isLoading ? <CircularProgress size={16} sx={{ color: '#3b82f6' }} /> : undefined} 
@@ -205,46 +265,6 @@ const Dashboard: React.FC = () => {
           >
             {systemState.status} {systemState.lastUpdate && `• Última sincronização: ${systemState.lastUpdate.toLocaleTimeString()}`}
           </MuiAlert>
-        </Box>
-      </Box>
-
-      {/* Filter Bar */}
-      <Box sx={{ 
-        ...glassPanelStyle, p: 2, mb: 4, display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'flex-end',
-        boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
-      }}>
-        <Box sx={{ flex: 1, minWidth: 200 }}>
-          <Typography variant="caption" sx={{ color: '#9ca3af', ml: 1, fontWeight: 600, mb: 0.5, display: 'block' }}>BUSCAR VIATURA</Typography>
-          <TextField 
-            size="small" 
-            fullWidth 
-            placeholder="Prefixo (Ex: UR-15201)" 
-            variant="outlined" 
-            sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'rgba(255,255,255,0.02)', color: 'white', borderRadius: '12px', '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' }, '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' }, '&.Mui-focused fieldset': { borderColor: '#3b82f6' } } }}
-          />
-        </Box>
-        <Box sx={{ flex: 1, minWidth: 150 }}>
-          <Typography variant="caption" sx={{ color: '#9ca3af', ml: 1, fontWeight: 600, mb: 0.5, display: 'block' }}>FILTRAR STATUS</Typography>
-          <FormControl fullWidth size="small">
-            <Select 
-              value="Todos" 
-              displayEmpty
-              sx={{ bgcolor: 'rgba(255,255,255,0.02)', color: 'white', borderRadius: '12px', '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.1)' }, '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(255,255,255,0.2)' }, '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' } }}
-            >
-              <MenuItem value="Todos">Todos os Status</MenuItem>
-              <MenuItem value="Operando">Operando</MenuItem>
-              <MenuItem value="Reserva">Reserva</MenuItem>
-              <MenuItem value="Baixado">Baixado</MenuItem>
-            </Select>
-          </FormControl>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 1.5, height: '40px' }}>
-          <Button variant="contained" startIcon={<Search />} sx={{ bgcolor: '#3b82f6', '&:hover': { bgcolor: '#2563eb' }, borderRadius: '12px', px: 3, fontWeight: 600, textTransform: 'none' }}>
-            Buscar
-          </Button>
-          <Button variant="outlined" startIcon={<DeleteOutlineOutlined />} sx={{ color: '#9ca3af', borderColor: 'rgba(255,255,255,0.1)', '&:hover': { borderColor: 'rgba(255,255,255,0.3)', bgcolor: 'rgba(255,255,255,0.05)' }, borderRadius: '12px', textTransform: 'none' }}>
-            Limpar
-          </Button>
         </Box>
       </Box>
 
@@ -285,25 +305,25 @@ const Dashboard: React.FC = () => {
           <Box sx={{ display: 'flex', flexDirection: { xs: 'column', lg: 'row' }, gap: 3, width: '100%' }}>
             {/* Coluna Checklists */}
             <Box sx={{ flex: 1, ...glassPanelStyle, p: 2, height: '500px', display: 'flex', flexDirection: 'column' }}>
-              <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="subtitle1"  sx={{ fontWeight: "bold",  color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1  }}>
                 <AssignmentTurnedIn sx={{ color: '#8b5cf6', fontSize: 20 }} /> Controle de Checklists Diários (Operando)
               </Typography>
               
               <Box sx={{ display: 'flex', gap: 2, flex: 1, overflow: 'hidden', flexDirection: { xs: 'column', md: 'row' } }}>
                 {/* Realizados */}
                 <Box sx={{ flex: 1, bgcolor: 'rgba(16, 185, 129, 0.05)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '16px', p: 1.5, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  <Typography variant="subtitle2" fontWeight="bold" sx={{ color: '#10b981', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="subtitle2"  sx={{ fontWeight: "bold",  color: '#10b981', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1  }}>
                     <CheckCircle fontSize="small" /> Realizados Hoje ({checklistControl.entregues.length})
                   </Typography>
                   <Box sx={{ flex: 1, overflowY: 'auto', pr: 1, '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.1)', borderRadius: '4px' } }}>
                     {checklistControl.entregues.length === 0 ? (
-                      <Typography variant="caption" sx={{ color: '#9ca3af' }}>Nenhum checklist entregue hoje.</Typography>
+                      <Typography variant="caption" sx={{ color: '#cbd5e1' }}>Nenhum checklist entregue hoje.</Typography>
                     ) : (
                       checklistControl.entregues.map((item, idx) => (
                         <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 0.5, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                          <Typography variant="caption" fontWeight="bold" sx={{ color: 'white' }}>{item.prefixo}</Typography>
+                          <Typography variant="caption"  sx={{ fontWeight: "bold",  color: 'white'  }}>{item.prefixo}</Typography>
                           <Box sx={{ textAlign: 'right' }}>
-                            <Typography variant="caption" sx={{ display: 'block', color: '#9ca3af', fontSize: '10px' }}>{item.motorista}</Typography>
+                            <Typography variant="caption" sx={{ display: 'block', color: '#cbd5e1', fontSize: '10px' }}>{item.motorista}</Typography>
                             <Typography variant="caption" sx={{ color: '#10b981', fontSize: '10px' }}>{item.hora}</Typography>
                           </Box>
                         </Box>
@@ -314,17 +334,17 @@ const Dashboard: React.FC = () => {
                 
                 {/* Pendentes */}
                 <Box sx={{ flex: 1, bgcolor: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '16px', p: 1.5, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                  <Typography variant="subtitle2" fontWeight="bold" sx={{ color: '#ef4444', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="subtitle2"  sx={{ fontWeight: "bold",  color: '#ef4444', mb: 1.5, display: 'flex', alignItems: 'center', gap: 1  }}>
                     <CancelOutlined fontSize="small" /> Pendentes Hoje ({checklistControl.pendentes.length})
                   </Typography>
                   <Box sx={{ flex: 1, overflowY: 'auto', pr: 1, '&::-webkit-scrollbar': { width: '4px' }, '&::-webkit-scrollbar-thumb': { background: 'rgba(255,255,255,0.1)', borderRadius: '4px' } }}>
                     {checklistControl.pendentes.length === 0 ? (
-                      <Typography variant="caption" sx={{ color: '#9ca3af' }}>Todos os checklists foram entregues!</Typography>
+                      <Typography variant="caption" sx={{ color: '#cbd5e1' }}>Todos os checklists foram entregues!</Typography>
                     ) : (
                       checklistControl.pendentes.map((item, idx) => (
                         <Box key={idx} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 0.5, borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                          <Typography variant="caption" fontWeight="bold" sx={{ color: '#fca5a5' }}>{item.prefixo}</Typography>
-                          <Typography variant="caption" sx={{ color: '#9ca3af', fontSize: '10px' }}>{item.base}</Typography>
+                          <Typography variant="caption"  sx={{ fontWeight: "bold",  color: '#fca5a5'  }}>{item.prefixo}</Typography>
+                          <Typography variant="caption" sx={{ color: '#cbd5e1', fontSize: '10px' }}>{item.base}</Typography>
                         </Box>
                       ))
                     )}
@@ -336,7 +356,7 @@ const Dashboard: React.FC = () => {
             {/* Coluna Direita: Feed de Notificações */}
             <Box sx={{ flex: 1, ...glassPanelStyle, display: 'flex', flexDirection: 'column', height: '500px' }}>
               <Box sx={{ p: 2, borderBottom: '1px solid rgba(255,255,255,0.05)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Typography variant="subtitle1"  sx={{ fontWeight: "bold",  color: 'white', display: 'flex', alignItems: 'center', gap: 1  }}>
                   <NotificationsActive sx={{ color: '#f59e0b', fontSize: 20 }} /> Central de Alertas
                 </Typography>
                 <Badge badgeContent={allAlerts.length} color="error" sx={{ '& .MuiBadge-badge': { fontWeight: 'bold', fontSize: '10px', height: '18px', minWidth: '18px' } }} />
@@ -391,8 +411,7 @@ const Dashboard: React.FC = () => {
                               />
                             </Box>
                           }
-                          secondary={item.alerta.mensagem}
-                          secondaryTypographyProps={{ color: 'rgba(255,255,255,0.85)', fontSize: '11px', lineHeight: 1.3, mt: 0.5 }}
+                          secondary={<Typography sx={{ color: 'rgba(255,255,255,0.85)', fontSize: '11px', lineHeight: 1.3, mt: 0.5 }}>{item.alerta.mensagem}</Typography>}
                         />
                       </ListItem>
                     ))}
